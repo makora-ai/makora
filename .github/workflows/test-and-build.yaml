@@ -1,0 +1,74 @@
+name: Main Flow
+
+permissions:
+  contents: read
+  checks: write
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - features/**
+      - dependabot/**
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  static_checks:
+    name: Static checks
+
+    timeout-minutes: 4
+    env:
+      PYTHONUTF8: "1"
+    strategy:
+      max-parallel: 5
+      matrix:
+        python_version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        os: [ubuntu-24.04, ubuntu-22.04, macos-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Setup python ${{ matrix.python_version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python_version }}
+          cache: 'pip' # caching pip dependencies
+
+      - name: Install package with dependencies
+        run: |
+          pip install -e '.[dev]'
+
+      - name: Format code
+        run: |
+          ruff format --check
+
+      - name: Run mypy
+        run: |
+          mypy makora --install-types --non-interactive
+
+      - name: Smoke test
+        run: |
+          makora --help
+
+  final_status_check:
+    if: ${{ always() }}
+    needs: [static_checks]
+    runs-on: ubuntu-latest
+    name: Final result
+    steps:
+      - run: exit 1
+        # see https://stackoverflow.com/a/67532120/4907315
+        if: >-
+          ${{
+               contains(needs.*.result, 'failure')
+            || contains(needs.*.result, 'cancelled')
+            || contains(needs.*.result, 'skipped')
+          }}

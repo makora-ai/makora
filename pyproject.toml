@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools", "wheel", "GitPython"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+exclude = [
+    "data/",
+    "makora/models/openapi.py"
+]
+line-length = 120
+
+[tool.mypy]
+exclude = [
+    "makora/models/openapi.py"
+]
+strict = true

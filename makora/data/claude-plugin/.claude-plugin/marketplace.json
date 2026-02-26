@@ -1,0 +1,13 @@
+{
+    "name": "makora",
+    "owner": {
+        "name": "Makora"
+    },
+    "plugins": [
+        {
+            "name": "makora-plugin",
+            "source": "./plugins/makora-plugin",
+            "description": "Format, evaluate, and profile GPU kernels using the Makora API"
+        }
+    ]
+}
