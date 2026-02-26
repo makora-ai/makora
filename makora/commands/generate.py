@@ -156,7 +156,7 @@ def cli_generate(
     ] = None,
     alone: Annotated[bool, typer.Option(help="Disables any interactivity.")] = False,
 ) -> None:
-    """Submit a generation new job to the agent."""
+    """Submit a new kernel generation job to the agent."""
     asyncio.run(
         cli_generate_async(
             file=file,
