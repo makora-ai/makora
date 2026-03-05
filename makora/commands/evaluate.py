@@ -23,6 +23,7 @@ from ..models.openapi import EvaluateKernelRequest, KernelEvaluationDetails, Ker
 from ..models.internal import TargetDevice
 from ..web.auth import ensure_authenticated, get_current_credentials
 from ..web.conn import open_connection
+from ..utils import get_rich_console
 
 
 async def cli_evaluate_async(
@@ -31,15 +32,17 @@ async def cli_evaluate_async(
     device: TargetDevice,
     url: str | None = None,
 ) -> None:
+    console = get_rich_console()
     creds = get_current_credentials()
     if creds is None:
-        raise SystemExit("You need to login first with 'makora login'")
+        console.print("[red]You need to login first with 'makora login'[/red]")
+        raise typer.Exit(1)
 
     if not reference_file.exists():
-        typer.echo(f"Error: File not found: {reference_file}", err=True)
+        console.print(f"[red]Error:[/red] File not found: {reference_file}")
         raise typer.Exit(1)
     if not optimized_file.exists():
-        typer.echo(f"Error: File not found: {optimized_file}", err=True)
+        console.print(f"[red]Error:[/red] File not found: {optimized_file}")
         raise typer.Exit(1)
 
     hardware_provider, hardware_model = device.to_api_device().split(":")
@@ -52,7 +55,7 @@ async def cli_evaluate_async(
         extras={},
     )
 
-    typer.echo("Evaluating code...")
+    console.print("[cyan]Evaluating code...[/cyan]")
 
     try:
         async with open_connection(url) as conn:
@@ -64,12 +67,12 @@ async def cli_evaluate_async(
                 token=creds.token,
             )
     except Exception as e:
-        typer.echo(f"Error: {e}", err=True)
+        console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1) from e
 
     evaluation = response.evaluation
     if evaluation is None or evaluation.status != KernelEvaluationStatus.COMPLETED:
-        typer.echo("\n✗ Evaluation failed!", err=True)
+        console.print("\n[red]✗ Evaluation failed![/red]")
         raise typer.Exit(1)
 
     optimized_time = evaluation.optimized_time
@@ -80,14 +83,14 @@ async def cli_evaluate_async(
     unit = evaluation.optimized_time_unit or evaluation.reference_time_unit or Unit.ms
     unit_value = unit.value
 
-    typer.echo("\n✓ Evaluation successful!")
-    typer.echo("\nBenchmark Results:")
+    console.print("\n[green]✓ Evaluation successful![/green]")
+    console.print("\n[bold]Benchmark Results:[/bold]")
     if reference_time is not None:
-        typer.echo(f"  Reference time: {reference_time:.6f} {unit_value}")
+        console.print(f"  [dim]Reference time:[/dim] [cyan]{reference_time:.6f} {unit_value}[/cyan]")
     if optimized_time is not None:
-        typer.echo(f"  Solution time:  {optimized_time:.6f} {unit_value}")
+        console.print(f"  [dim]Solution time:[/dim]  [cyan]{optimized_time:.6f} {unit_value}[/cyan]")
     if speedup is not None:
-        typer.echo(f"  Speedup:        {speedup:.2f}x")
+        console.print(f"  [dim]Speedup:[/dim]        [green bold]{speedup:.2f}x[/green bold]")
 
 
 def cli_evaluate(
