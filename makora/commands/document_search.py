@@ -22,20 +22,23 @@ import typer
 from ..models.openapi import DocumentSearchRequest, DocumentSearchResult
 from ..web.auth import ensure_authenticated, get_current_credentials
 from ..web.conn import open_connection
+from ..utils import get_rich_console
 
 
 async def cli_document_search_async(query: str, max_entries: int, url: str | None = None) -> None:
+    console = get_rich_console()
     creds = get_current_credentials()
     if creds is None:
-        raise SystemExit("You need to login first with 'makora login'")
+        console.print("[red]You need to login first with 'makora login'[/red]")
+        raise typer.Exit(1)
 
     query = query.strip()
     if not query:
-        typer.echo("Error: Query cannot be empty.", err=True)
+        console.print("[red]Error:[/red] Query cannot be empty.")
         raise typer.Exit(1)
 
     request = DocumentSearchRequest(query=query, max_entries=max_entries)
-    typer.echo("Searching documents...")
+    console.print("[cyan]Searching documents...[/cyan]")
 
     try:
         async with open_connection(url) as conn:
@@ -47,26 +50,26 @@ async def cli_document_search_async(query: str, max_entries: int, url: str | Non
                 token=creds.token,
             )
     except Exception as e:
-        typer.echo(f"Error: {e}", err=True)
+        console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1) from e
 
     documents = response.documents
     if not documents:
-        typer.echo("No documents found.")
+        console.print("[dim]No documents found.[/dim]")
         return
 
-    typer.echo(f"Found {len(documents)} document(s):\n")
+    console.print(f"\n[green]✓ Found {len(documents)} document(s):[/green]\n")
     for index, document in enumerate(documents, 1):
-        typer.echo(f"--- Document {index} ---")
-        typer.echo(f"id: {document.id}")
+        console.print(f"[bold cyan]─── Document {index} ───[/bold cyan]")
+        console.print(f"[dim]id:[/dim] [cyan]{document.id}[/cyan]")
         if document.score is not None:
-            typer.echo(f"score: {document.score}")
+            console.print(f"[dim]score:[/dim] [yellow]{document.score}[/yellow]")
         if document.meta:
-            typer.echo(f"meta: {json.dumps(document.meta, ensure_ascii=True)}")
+            console.print(f"[dim]meta:[/dim] {json.dumps(document.meta, ensure_ascii=True)}")
         if document.content:
-            typer.echo("content:")
-            typer.echo(document.content)
-        typer.echo()
+            console.print("[dim]content:[/dim]")
+            console.print(document.content)
+        console.print()
 
 
 def cli_document_search(

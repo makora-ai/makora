@@ -23,6 +23,7 @@ from ..models.openapi import ExpertGenerateRequest, KernelGenerationResult, Kern
 from ..models.internal import TargetDevice
 from ..web.auth import ensure_authenticated, get_current_credentials
 from ..web.conn import open_connection
+from ..utils import get_rich_console
 
 
 async def cli_expert_generate_async(
@@ -33,15 +34,17 @@ async def cli_expert_generate_async(
     speedup: float | None,
     url: str | None = None,
 ) -> None:
+    console = get_rich_console()
     creds = get_current_credentials()
     if creds is None:
-        raise SystemExit("You need to login first with 'makora login'")
+        console.print("[red]You need to login first with 'makora login'[/red]")
+        raise typer.Exit(1)
 
     if not file.exists():
-        typer.echo(f"Error: File not found: {file}", err=True)
+        console.print(f"[red]Error:[/red] File not found: {file}")
         raise typer.Exit(1)
     if problem is not None and not problem.exists():
-        typer.echo(f"Error: File not found: {problem}", err=True)
+        console.print(f"[red]Error:[/red] File not found: {problem}")
         raise typer.Exit(1)
 
     kernel_code = file.read_text()
@@ -50,9 +53,8 @@ async def cli_expert_generate_async(
     try:
         lang = KernelLanguage(language)
     except ValueError:
-        typer.echo(
-            f"Error: Invalid language '{language}'. Must be one of: {[e.value for e in KernelLanguage]}",
-            err=True,
+        console.print(
+            f"[red]Error:[/red] Invalid language '{language}'. Must be one of: {[e.value for e in KernelLanguage]}"
         )
         raise typer.Exit(1) from None
 
@@ -67,7 +69,7 @@ async def cli_expert_generate_async(
         benchmark_info=None,
     )
 
-    typer.echo("Generating optimized kernel...", err=True)
+    console.print("[cyan]Generating optimized kernel...[/cyan]", highlight=False)
 
     async with open_connection(url) as conn:
         await ensure_authenticated(conn)
@@ -79,9 +81,9 @@ async def cli_expert_generate_async(
         )
 
     if response.summary:
-        typer.echo(f"Summary: {response.summary}", err=True)
+        console.print(f"\n[bold]Summary:[/bold] {response.summary}\n", highlight=False)
 
-    typer.echo(response.code)
+    console.print(response.code, highlight=False)
 
 
 def cli_expert_generate(
@@ -99,6 +101,7 @@ def cli_expert_generate(
     url: Annotated[str | None, typer.Option(help="Override the Makora API URL")] = None,
 ) -> None:
     """Generate an optimized GPU kernel using expert optimization patterns."""
+    console = get_rich_console()
     try:
         asyncio.run(
             cli_expert_generate_async(
@@ -111,5 +114,5 @@ def cli_expert_generate(
             )
         )
     except Exception as e:
-        typer.echo(f"Error: {e}", err=True)
+        console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1) from e

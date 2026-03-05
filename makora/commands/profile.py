@@ -28,6 +28,7 @@ from ..models.openapi import (
 from ..models.internal import TargetDevice
 from ..web.auth import ensure_authenticated, get_current_credentials
 from ..web.conn import open_connection
+from ..utils import get_rich_console
 
 
 def _extract_error(details: KernelProfilingDetails) -> str:
@@ -46,16 +47,18 @@ def _extract_error(details: KernelProfilingDetails) -> str:
 async def cli_profile_async(
     reference_file: Path, optimized_file: Path, device: TargetDevice, url: str | None = None
 ) -> None:
+    console = get_rich_console()
     creds = get_current_credentials()
     if creds is None:
-        raise SystemExit("You need to login first with 'makora login'")
+        console.print("[red]You need to login first with 'makora login'[/red]")
+        raise typer.Exit(1)
 
     if not reference_file.exists():
-        typer.echo(f"Error: File not found: {reference_file}", err=True)
+        console.print(f"[red]Error:[/red] File not found: {reference_file}")
         raise typer.Exit(1)
 
     if not optimized_file.exists():
-        typer.echo(f"Error: File not found: {optimized_file}", err=True)
+        console.print(f"[red]Error:[/red] File not found: {optimized_file}")
         raise typer.Exit(1)
 
     hardware_provider, hardware_model = device.to_api_device().split(":")
@@ -69,7 +72,7 @@ async def cli_profile_async(
         mode=ProfilingMode.full,
     )
 
-    typer.echo("Profiling code...")
+    console.print("[cyan]Profiling code...[/cyan]")
 
     try:
         async with open_connection(url) as conn:
@@ -81,40 +84,40 @@ async def cli_profile_async(
                 token=creds.token,
             )
     except Exception as e:
-        typer.echo(f"Error: {e}", err=True)
+        console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1) from e
 
     run = response.kernel_profiling_run
     if run is None or run.status != KernelEvaluationStatus.COMPLETED:
-        typer.echo("\nProfiling failed!", err=True)
-        typer.echo(f"\nError: {_extract_error(response)}", err=True)
+        console.print("\n[red]✗ Profiling failed![/red]")
+        console.print(f"[red]Error:[/red] {_extract_error(response)}")
         raise typer.Exit(1)
 
     profiling_result = run.profiling_result
     if profiling_result is None:
-        typer.echo("\nNo kernel profiling data available.")
+        console.print("\n[dim]No kernel profiling data available.[/dim]")
         return
 
-    typer.echo("\nProfiling successful!")
+    console.print("\n[green]✓ Profiling successful![/green]")
     kernels = profiling_result.kernel_info or []
     if not kernels:
-        typer.echo("\nNo kernel profiling data available.")
+        console.print("\n[dim]No kernel profiling data available.[/dim]")
         return
 
-    typer.echo(f"\nProfiled {len(kernels)} kernel(s):\n")
+    console.print(f"\n[bold]Profiled {len(kernels)} kernel(s):[/bold]\n")
     for i, kernel in enumerate(kernels, 1):
-        typer.echo(f"--- Kernel {i} ---")
+        console.print(f"[bold cyan]─── Kernel {i} ───[/bold cyan]")
         if kernel.raw_metrics:
-            typer.echo("\nMetrics:")
+            console.print("\n[bold]Metrics:[/bold]")
             for key, value in kernel.raw_metrics.items():
-                typer.echo(f"  {key}: {value}")
+                console.print(f"  [dim]{key}:[/dim] [cyan]{value}[/cyan]")
         if kernel.details_page_text:
-            typer.echo("\nDetails:")
-            typer.echo(kernel.details_page_text)
+            console.print("\n[bold]Details:[/bold]")
+            console.print(kernel.details_page_text)
         if kernel.nsys_report_text:
-            typer.echo("\nNsys Report:")
-            typer.echo(kernel.nsys_report_text)
-        typer.echo()
+            console.print("\n[bold]Nsys Report:[/bold]")
+            console.print(kernel.nsys_report_text)
+        console.print()
 
 
 def cli_profile(
