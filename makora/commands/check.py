@@ -22,6 +22,7 @@ import typer
 from rich.syntax import Syntax
 
 from ..utils import get_rich_console
+from ..log import get_logger
 from ..models.internal import TargetDevice
 from ..web.conn import open_connection
 from ..web.auth import ensure_authenticated
@@ -36,6 +37,7 @@ async def cli_check_async(
     fix: bool = False,
     interactive: bool = True,
 ) -> None:
+    get_logger().info("check: file={} device={} fix={}", file, device.value, fix)
     console = get_rich_console()
     print_mini_header(f"Check: {file.name}")
 
@@ -44,6 +46,7 @@ async def cli_check_async(
         raise typer.Exit(1)
 
     code = file.read_text()
+    get_logger().debug("Read file: {} bytes", len(code))
 
     async with open_connection(url) as conn:
         await ensure_authenticated(conn)
@@ -61,9 +64,11 @@ async def cli_check_async(
         )
 
         if validation_result is None:
+            get_logger().debug("Validation failed, exiting")
             raise typer.Exit(1)
 
         _, final_code, fixed = validation_result
+        get_logger().info("Validation passed: fixed={} code_len={}", fixed, len(final_code))
 
         if fixed:
             # Display with syntax highlighting (no box for easy copy/paste)

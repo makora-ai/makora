@@ -53,6 +53,7 @@ DEVICE_LABELS = {
     TargetDevice.B200: "NVIDIA B200",
     TargetDevice.L40S: "NVIDIA L40S",
     TargetDevice.MI300X: "AMD MI300X",
+    TargetDevice.MI355X: "AMD MI355X",
     TargetDevice.ADRENO_750: "Snapdragon 8 Gen 3 - GPU",
     TargetDevice.ADRENO_830: "Snapdragon 8 Elite - GPU",
     TargetDevice.HEXAGON_V75: "Snapdragon 8 Gen 3 - NPU",

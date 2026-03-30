@@ -25,6 +25,7 @@ from rich.syntax import Syntax
 from rich.table import Table
 
 from ..utils import get_rich_console
+from ..log import get_logger
 from ..web.conn import open_connection
 from ..web.auth import get_current_credentials
 from ..web.sessions import get_user_sessions, get_session_kernels, resolve_session
@@ -99,6 +100,7 @@ async def resolve_kernel(
 
 
 async def cli_kernels_list_async(session_id: str, url: str | None = None) -> None:
+    get_logger().debug("kernels list: session_id={}", session_id)
     creds = get_current_credentials()
     if creds is None:
         raise SystemExit("You need to login first with 'makora login'")
@@ -123,6 +125,7 @@ async def cli_kernels_list_async(session_id: str, url: str | None = None) -> Non
 
 
 async def cli_kernels_code_async(session_id: str, kernel_id: str, output: str | None, url: str | None = None) -> None:
+    get_logger().debug("kernels code: session_id={} kernel_id={} output={}", session_id, kernel_id, output)
     creds = get_current_credentials()
     if creds is None:
         raise SystemExit("You need to login first with 'makora login'")
@@ -140,6 +143,7 @@ async def cli_kernels_code_async(session_id: str, kernel_id: str, output: str | 
 
         # Resolve kernel ID and get perf data from list endpoint
         kernel = await resolve_kernel(kernels, match.id, kernel_id)
+        get_logger().debug("Resolved kernel: {}", kernel.id if kernel else None)
 
         if not kernel:
             console.print(f"[red]No kernel found matching '{kernel_id}'[/red]")
@@ -152,6 +156,13 @@ async def cli_kernels_code_async(session_id: str, kernel_id: str, output: str | 
 
     if not kernel.code:
         raise SystemExit("No code available for this kernel.")
+
+    get_logger().debug(
+        "Kernel stats: time={} speedup_compiled={} speedup_eager={}",
+        kernel.time,
+        kernel.speed_up_compiled,
+        kernel.speed_up_eager,
+    )
 
     # Save to file if requested
     if output:

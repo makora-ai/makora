@@ -33,6 +33,7 @@ from .commands import (
 )
 from .web.auth import AuthError
 from .components.logo import print_header
+from .log import setup_logs
 from .utils import get_rich_console
 
 
@@ -67,7 +68,8 @@ def main() -> None:
     app.command("install")(cli_install)
 
     try:
-        app()
+        with setup_logs():
+            app()
     except AuthError as e:
         console = get_rich_console()
         console.print(f"[red]{e}[/red]")

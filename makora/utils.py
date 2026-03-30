@@ -16,6 +16,7 @@
 import os
 import sys
 import types
+from collections.abc import Sequence
 from typing import Any, Callable, Iterable, TYPE_CHECKING, Protocol, overload, TypeVar
 from typing_extensions import Self
 from types import TracebackType, EllipsisType
@@ -114,7 +115,7 @@ _env_vars: dict[str, "EnvVar"] = {}
 
 
 class EnvVarMeta(type):
-    def __call__(self, var_name: str, default: str | None = None, hidden: bool = False) -> "EnvVar":
+    def __call__(self, var_name: str, default: str | None = None, hidden: bool = False, desc: str = "") -> "EnvVar":
         current = _env_vars.get(var_name)
         if current is not None:
             if current.default == default:
@@ -124,17 +125,18 @@ class EnvVarMeta(type):
                 f"registered with default value of: {current.default!r}"
             )
 
-        new = super().__call__(var_name, default, hidden)
+        new = super().__call__(var_name, default, hidden, desc)
         assert isinstance(new, EnvVar)
         _env_vars[var_name] = new
         return new
 
 
 class EnvVar(metaclass=EnvVarMeta):
-    def __init__(self, var_name: str, default: str | None, hidden: bool = False) -> None:
+    def __init__(self, var_name: str, default: str | None, hidden: bool = False, desc: str = "") -> None:
         self.var_name = var_name
         self.default = default
         self.hidden = hidden
+        self.desc = desc
         self._resolved = False
         self._value: str | None = None
 
@@ -152,12 +154,14 @@ def get_env_vars() -> Iterable[EnvVar]:
     return sorted(_env_vars.values(), key=lambda e: e.var_name)
 
 
-NO_RICH = EnvVar("MAKORA_NO_RICH", "")
+NO_RICH = EnvVar(
+    "MAKORA_NO_RICH", "0", desc="Disable styling and highlighting output provided by 'rich' when set to '1'."
+)
 
 
 @lru_cache(maxsize=1, typed=False)
 def get_rich_console() -> Console:
-    if bool(NO_RICH.value):
+    if NO_RICH.value == "1":
         return Console(
             color_system=None,
             force_terminal=False,
@@ -171,6 +175,69 @@ def get_rich_console() -> Console:
     return Console(
         tab_size=4,
     )
+
+
+class StageErrorLike(Protocol):
+    @property
+    def exception_type(self) -> str: ...
+
+    @property
+    def message(self) -> str: ...
+
+    @property
+    def traceback(self) -> str | None: ...
+
+
+class StageLogLike(Protocol):
+    @property
+    def timestamp(self) -> Any: ...
+
+    @property
+    def message(self) -> str: ...
+
+
+class StageResultLike(Protocol):
+    @property
+    def successful(self) -> bool | None: ...
+
+    @property
+    def stdout(self) -> str | None: ...
+
+    @property
+    def logs(self) -> Sequence[StageLogLike] | None: ...
+
+    @property
+    def error(self) -> StageErrorLike | None: ...
+
+
+def format_stage_error(stage_name: str, result: StageResultLike) -> str:
+    lines: list[str] = [f"Stage: {stage_name}"]
+    if result.stdout:
+        lines.append(f"  Stdout:\n{result.stdout}")
+    if result.logs:
+        log_lines = "\n".join(
+            f"    [{log.timestamp}] {log.message}" if log.timestamp else f"    {log.message}" for log in result.logs
+        )
+        lines.append(f"  Logs:\n{log_lines}")
+    if result.error:
+        if result.error.traceback:
+            lines.append(f"  Traceback:\n{result.error.traceback}")
+        lines.append(f"  Error ({result.error.exception_type}): {result.error.message}")
+    return "\n".join(lines)
+
+
+def extract_stage_error(stages: Iterable[tuple[str, StageResultLike | None]], default_message: str) -> str:
+    stage_results = list(stages)
+
+    for stage_name, result in stage_results:
+        if result and result.error:
+            return format_stage_error(stage_name, result)
+
+    for stage_name, result in stage_results:
+        if result and result.successful is False:
+            return format_stage_error(stage_name, result)
+
+    return default_message
 
 
 class _dummy_context:

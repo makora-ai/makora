@@ -47,7 +47,7 @@ def cli_info() -> None:
     table = create_styled_table()
     table.add_column("Env Variable")
     table.add_column("Value")
-    table.add_column("Default")
+    table.add_column("Description")
 
     for var in get_env_vars():
         if var.hidden:
@@ -57,8 +57,13 @@ def cli_info() -> None:
         if not_default:
             value = f"[red bold]{var.value}[/red bold]"
         else:
-            value = var.value
+            value = f"[dim]{var.value}[/dim]"
 
-        table.add_row(var.var_name, value, f"[dim]{var.default}[/dim]")
+        desc = var.desc
+        if desc:
+            desc += " "
+        desc += f"[dim][Default: {var.default!r}][/dim]"
+
+        table.add_row(var.var_name, value, desc)
 
     console.print(table)

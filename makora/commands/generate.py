@@ -21,6 +21,7 @@ from typing import Annotated
 import typer
 
 from ..utils import get_rich_console
+from ..log import get_logger
 from ..models.openapi import KernelLanguage
 from ..models.internal import TargetDevice
 from ..web.conn import open_connection
@@ -44,6 +45,14 @@ async def cli_generate_async(
     instr: list[Path] | None = None,
     interactive: bool = True,
 ) -> None:
+    get_logger().info(
+        "generate: file={} device={} language={} fix={} instr_count={}",
+        file,
+        device.value,
+        language,
+        fix,
+        len(instr) if instr else 0,
+    )
     console = get_rich_console()
     print_mini_header(f"Generate: {file.name}")
 
@@ -52,6 +61,7 @@ async def cli_generate_async(
         raise typer.Exit(1)
 
     code = file.read_text()
+    get_logger().debug("Read reference file: {} bytes", len(code))
 
     user_prompt = ""
     if instr:
@@ -63,9 +73,11 @@ async def cli_generate_async(
             user_prompt += instr_file.read_text().strip() + "\n\n"
 
         user_prompt = user_prompt.strip()
+        get_logger().debug("Loaded instruction prompt: {} bytes", len(user_prompt))
 
     if language is None:
         language = device.get_default_language()
+        get_logger().debug("Using default language for device={}: {}", device.value, language.value)
 
     elif not device.supports_language(language):
         console.print(f"[red]Error:[/red] Device {device.value} does not support {language.value}")
@@ -91,9 +103,11 @@ async def cli_generate_async(
         )
 
         if validation_result is None:
+            get_logger().debug("Validation failed, exiting")
             raise typer.Exit(1)
 
         problem_id, *_ = validation_result
+        get_logger().info("Validation passed: problem_id={}", problem_id)
 
         console.print()
         with show_spinner("Creating session..."):
@@ -108,6 +122,7 @@ async def cli_generate_async(
                 user_prompt=user_prompt,
             )
 
+    get_logger().info("Session created: session_id={} problem_id={}", session_id, problem_id)
     console.print()
     print_success_panel(
         f"Session created!\n\n"
@@ -126,8 +141,8 @@ def cli_generate(
         typer.Option(help="Target language. If not provided will use the default for the given device."),
     ] = None,
     label: Annotated[str, typer.Option(help="Optional user-defined label for the job.")] = "",
-    atol: Annotated[float, typer.Option(help="Absolute tolerance to use when validating generated solutions.")] = 1e-2,
-    rtol: Annotated[float, typer.Option(help="Relative tolerance to use when validating generated solutions.")] = 1e-2,
+    atol: Annotated[float, typer.Option(help="Absolute tolerance to use when validating generated solutions.")] = 1e-3,
+    rtol: Annotated[float, typer.Option(help="Relative tolerance to use when validating generated solutions.")] = 1e-3,
     url: Annotated[
         str | None,
         typer.Option(

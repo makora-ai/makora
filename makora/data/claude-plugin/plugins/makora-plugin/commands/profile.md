@@ -18,12 +18,12 @@ You will profile GPU code using the Makora skill (`makora-plugin:makora-skill`) 
 
 - `$1`: Path to reference implementation file (baseline)
 - `$2`: Path to solution implementation file (candidate to profile)
-- `$3` (optional): Device specification (e.g., `--device "nvidia/H100"`, full list of devices in the Makora skill)
+- `$3` (optional): Device specification (e.g., `--device "H100"`, full list of devices in the Makora skill)
 
 If arguments are not provided, ask the user for:
 1. Reference code file path
 2. Optimized code file path
-3. Device type (default: nvidia/L40S)
+3. Device type (default: L40S)
 
 ## Instructions
 
@@ -36,7 +36,7 @@ If arguments are not provided, ask the user for:
 /makora-plugin:profile reference.py solution.py
 
 # With specific device
-/makora-plugin:profile reference.py solution.py --device "nvidia/H100"
+/makora-plugin:profile reference.py solution.py --device "H100"
 
 # Interactive mode (you'll be prompted)
 /makora-plugin:profile

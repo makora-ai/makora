@@ -21,12 +21,14 @@ import typer
 from rich.syntax import Syntax
 
 from ..utils import get_rich_console
+from ..log import get_logger
 from ..web.conn import open_connection
 from ..web.auth import get_current_credentials
 from ..web.sessions import get_user_sessions, get_session, resolve_session
 
 
 async def cli_refcode_async(session_id: str, output: str | None, url: str | None) -> None:
+    get_logger().info("refcode: session_id={} output={}", session_id, output)
     creds = get_current_credentials()
     if creds is None:
         raise SystemExit("You need to login first with 'makora login'")
@@ -45,6 +47,8 @@ async def cli_refcode_async(session_id: str, output: str | None, url: str | None
     code = session.request.problem_description_code.code
     if not code:
         raise SystemExit("No refcode available for this session.")
+
+    get_logger().debug("Refcode available: {} bytes", len(code))
 
     if output:
         Path(output).write_text(code, encoding="utf-8")

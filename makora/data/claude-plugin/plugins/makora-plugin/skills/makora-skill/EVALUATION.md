@@ -22,11 +22,11 @@ Do NOT invoke it as a Python module or a path to an executable file. The tool is
 ## Example Usage
 
 ```bash
-# Basic usage with default device (nvidia/L40S)
+# Basic usage with default device (L40S)
 makora evaluate reference.py solution.py
 
 # Specify a different device
-makora evaluate reference.py solution.py --device "nvidia/H100"
+makora evaluate reference.py solution.py --device "H100"
 ```
 
 The output shows:

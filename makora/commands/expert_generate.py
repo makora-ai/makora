@@ -23,6 +23,7 @@ from ..models.openapi import ExpertGenerateRequest, KernelGenerationResult, Kern
 from ..models.internal import TargetDevice
 from ..web.auth import ensure_authenticated, get_current_credentials
 from ..web.conn import open_connection
+from ..log import get_logger
 from ..utils import get_rich_console
 
 
@@ -34,6 +35,13 @@ async def cli_expert_generate_async(
     speedup: float | None,
     url: str | None = None,
 ) -> None:
+    get_logger().info(
+        "expert-generate: file={} device={} language={} speedup={}",
+        file,
+        device.value,
+        language,
+        speedup,
+    )
     console = get_rich_console()
     creds = get_current_credentials()
     if creds is None:
@@ -69,7 +77,7 @@ async def cli_expert_generate_async(
         benchmark_info=None,
     )
 
-    console.print("[cyan]Generating optimized kernel...[/cyan]", highlight=False)
+    console.print("[cyan]Generating optimized kernel...[/cyan]")
 
     async with open_connection(url) as conn:
         await ensure_authenticated(conn)
@@ -80,6 +88,11 @@ async def cli_expert_generate_async(
             token=creds.token,
         )
 
+    get_logger().info(
+        "Expert generate result: has_summary={} code_len={}",
+        bool(response.summary),
+        len(response.code),
+    )
     if response.summary:
         console.print(f"\n[bold]Summary:[/bold] {response.summary}\n", highlight=False)
 

@@ -22,10 +22,12 @@ import typer
 from ..models.openapi import DocumentSearchRequest, DocumentSearchResult
 from ..web.auth import ensure_authenticated, get_current_credentials
 from ..web.conn import open_connection
+from ..log import get_logger
 from ..utils import get_rich_console
 
 
 async def cli_document_search_async(query: str, max_entries: int, url: str | None = None) -> None:
+    get_logger().info("document-search: query_len={} max_entries={}", len(query), max_entries)
     console = get_rich_console()
     creds = get_current_credentials()
     if creds is None:
@@ -54,6 +56,7 @@ async def cli_document_search_async(query: str, max_entries: int, url: str | Non
         raise typer.Exit(1) from e
 
     documents = response.documents
+    get_logger().info("Search returned {} documents", len(documents) if documents else 0)
     if not documents:
         console.print("[dim]No documents found.[/dim]")
         return
