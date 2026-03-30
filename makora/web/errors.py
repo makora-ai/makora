@@ -17,6 +17,8 @@ from typing import Any
 
 from aiohttp import ClientResponse
 
+from ..log import get_logger
+
 
 class HttpError(ValueError):
     def __init__(self, code: int, url: str, *args: Any) -> None:
@@ -38,6 +40,8 @@ async def map_errors(resp: ClientResponse) -> None:
         data = await resp.json()
     else:
         data = await resp.text()
+
+    get_logger().warning("HTTP error: status={} url={} data={}", resp.status, resp.real_url, data)
 
     match resp.status:
         case 404:

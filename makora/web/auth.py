@@ -21,11 +21,16 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 from .conn import Connection
-from ..utils import EnvVar
 from ..models.openapi import Tokens, User
+from ..log import get_logger
+from ..utils import EnvVar
 
 
-USER_FILE = EnvVar("MAKORA_USER_FILE", "~/.makora/user")
+USER_FILE = EnvVar(
+    "MAKORA_USER_FILE",
+    "~/.makora/user",
+    desc="The file used to store and retrieve user's credentials and sessions info.",
+)
 AUTH_BASE_URL = EnvVar("MAKORA_AUTH_URL", "https://be.stage.makora.com/api/v1/", hidden=True)
 
 
@@ -106,8 +111,11 @@ def get_current_credentials() -> Credentials | None:
         if not isinstance(data, dict):
             raise TypeError()
 
-        return Credentials(**data)
+        creds = Credentials(**data)
+        get_logger().debug("Loaded credentials: user={}", creds.user)
+        return creds
     except Exception:
+        get_logger().warning("Failed to parse credentials file, deleting")
         file.unlink()
         return None
 
@@ -125,8 +133,10 @@ def save_or_clear_credentials(creds: Credentials | None) -> None:
 
 async def _validate_token(conn: Connection, creds: Credentials, jot: bool) -> bool:
     if creds.validated:
+        get_logger().debug("Token already validated, skipping check for user={}", creds.user)
         return True
 
+    get_logger().debug("Validating token: user={} jot={}", creds.user, jot)
     try:
         if jot:
             repl_jot = await conn.post(
@@ -135,32 +145,38 @@ async def _validate_token(conn: Connection, creds: Credentials, jot: bool) -> bo
                 token=creds.token,
             )
             if not repl_jot.is_active:
+                get_logger().warning("Token is not active for user={}", repl_jot.email)
                 return False
             if creds.user is None:
                 creds.user = repl_jot.email
             elif creds.user != repl_jot.email:
+                get_logger().warning("User mismatch: expected={} got={}", creds.user, repl_jot.email)
                 return False
 
             creds.full_name = repl_jot.full_name
             creds.roles = repl_jot.roles
+            get_logger().debug("Token validated via JOT: user={}", creds.user)
             return True
         else:
             repl = await conn.get("auth/me", reply_format=User, token=creds.token)
             if creds.user is None:
                 creds.user = repl.email
             elif creds.user != repl.email:
+                get_logger().warning("User mismatch: expected={} got={}", creds.user, repl.email)
                 return False
 
             creds.roles = repl.roles or []
+            get_logger().debug("Token validated via auth/me: user={}", creds.user)
             return True
-    except Exception:
+    except Exception as exc:
+        get_logger().warning("Token validation failed: {}", exc)
         return False
     finally:
         creds.validated = True
 
 
 def logout() -> None:
-    print("Logging out!")
+    get_logger().info("Logging out, clearing credentials")
     save_or_clear_credentials(None)
 
 
@@ -216,24 +232,31 @@ async def login_with_password(conn: Connection, user: str, password: str) -> Cre
 
 
 async def login_with_token(conn: Connection, user: str | None, token: str) -> Credentials:
+    get_logger().info("Attempting login with a token: user={}", user)
     creds = get_current_credentials()
     if creds is not None:
         if creds.token == token and await _validate_token(conn, creds, jot=False):
+            get_logger().debug("Reusing existing valid credentials for user={}", creds.user)
             return creds
+        get_logger().warning("Existing credentials invalid or token mismatch, clearing")
         logout()
 
     creds = Credentials(user=user, token=token)
     if not await _validate_token(conn, creds, jot=False):
         raise AuthError("Provided API token did not validate successfully. Try logging out and in again.")
 
+    get_logger().info("Login successful, saving credentials for user={}", creds.user)
     save_or_clear_credentials(creds)
     return creds
 
 
 async def ensure_authenticated(conn: Connection) -> None:
+    get_logger().debug("Ensuring authentication")
     creds = get_current_credentials()
     if creds is None:
         raise AuthError("You need to login first with 'makora login'")
 
     if not await _validate_token(conn, creds, jot=False):
         raise AuthError("Currently stored credentials seem to not validate! Please re-login to refresh tokens.")
+
+    get_logger().debug("Authentication verified for user={}", creds.user)

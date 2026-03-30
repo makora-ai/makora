@@ -21,6 +21,7 @@ import aiohttp
 from pydantic import BaseModel
 
 from ..config import get_generate_base_url
+from ..log import get_logger
 from .errors import map_errors
 
 
@@ -38,6 +39,7 @@ class Connection:
         self.client: aiohttp.ClientSession | None = None
 
     async def __aenter__(self) -> Self:
+        get_logger().debug("Opening connection to {}", self.base_url)
         client = aiohttp.ClientSession(base_url=self.base_url, raise_for_status=False)
         await client.__aenter__()
         self.client = client
@@ -50,11 +52,13 @@ class Connection:
         exc_tb: TracebackType | None,
     ) -> None:
         assert self.client is not None
+        get_logger().debug("Closing connection to {}", self.base_url)
         await self.client.__aexit__(exc_type, exc_val, exc_tb)
         self.client = None
         return
 
     async def _reconnect(self) -> None:
+        get_logger().warning("Server disconnected, reconnecting to {}", self.base_url)
         if self.client is not None:
             await self.client.__aexit__(None, None, None)
             self.client = None
@@ -80,18 +84,20 @@ class Connection:
         if payload:
             params: dict[str, Any] = {}
             for p in payload:
-                params.update(p.model_dump(mode="json"))
+                params.update(p.model_dump(mode="json", exclude_none=True))
 
             if json:
                 kwargs["json"] = params
             else:
                 kwargs["data"] = params
 
+        get_logger().info("POST {}", endpoint)
         try:
             async with self.client.post(
                 endpoint,
                 **kwargs,  # type: ignore[arg-type,unused-ignore]
             ) as resp:
+                get_logger().debug("POST {} -> {}", endpoint, resp.status)
                 await map_errors(resp)
                 repl = await resp.text()
                 return reply_format.model_validate_json(repl)
@@ -101,6 +107,7 @@ class Connection:
                 endpoint,
                 **kwargs,  # type: ignore[arg-type,unused-ignore]
             ) as resp:
+                get_logger().debug("POST {} -> {} (after reconnect)", endpoint, resp.status)
                 await map_errors(resp)
                 repl = await resp.text()
                 return reply_format.model_validate_json(repl)
@@ -113,14 +120,17 @@ class Connection:
         if token is not None:
             headers["Authorization"] = f"Bearer {token}"
 
+        get_logger().info("GET {}", endpoint)
         try:
             async with self.client.get(endpoint, headers=headers) as resp:
+                get_logger().debug("GET {} -> {}", endpoint, resp.status)
                 await map_errors(resp)
                 repl = await resp.text()
                 return reply_format.model_validate_json(repl)
         except aiohttp.ServerDisconnectedError:
             await self._reconnect()
             async with self.client.get(endpoint, headers=headers) as resp:
+                get_logger().debug("GET {} -> {} (after reconnect)", endpoint, resp.status)
                 await map_errors(resp)
                 repl = await resp.text()
                 return reply_format.model_validate_json(repl)

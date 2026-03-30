@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+import logging
 from asyncio import sleep
 from datetime import datetime
 from typing import Callable
 
 from .conn import Connection
 from .auth import get_current_credentials
+from ..log import get_logger
 from ..models.openapi import (
     ProblemDescriptionCode,
     ProblemCreationRequest,
@@ -32,6 +33,7 @@ from ..models.internal import TargetDevice
 async def submit_custom_problem(
     conn: Connection, code: str, target_device: TargetDevice, problem_name: str = "", fix: bool = False
 ) -> str:
+    get_logger().info("Submitting custom problem: device={} fix={} code_len={}", target_device.value, fix, len(code))
     creds = get_current_credentials()
     if creds is None:
         raise RuntimeError("User needs to be logged in")
@@ -44,7 +46,9 @@ async def submit_custom_problem(
     )
 
     repl = await conn.post("problems/custom", request, reply_format=ProblemCreationResponse, token=creds.token)
-    return str(repl.problem_validation_task_id)  ## from uuid
+    task_id = str(repl.problem_validation_task_id)
+    get_logger().info("Problem submitted: task_id={}", task_id)
+    return task_id  ## from uuid
 
 
 async def poll_validation_task(
@@ -57,6 +61,7 @@ async def poll_validation_task(
     if creds is None:
         raise RuntimeError("User needs to be logged in")
 
+    get_logger().debug("Polling validation task: task_id={}", task_id)
     last_seen_at: datetime | None = None
 
     while True:
@@ -65,6 +70,30 @@ async def poll_validation_task(
             reply_format=ProblemValidationTaskStatus,
             token=creds.token,
         )
+
+        logger = get_logger()
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "Validation task status={} error={}",
+                status.status,
+                {
+                    "compilation": (
+                        status.compilation_result.compilation_error
+                        if status.compilation_result is not None
+                        else "(not started)"
+                    ),
+                    "preparation": (
+                        status.preparation_result.preparation_error
+                        if status.preparation_result is not None
+                        else "(not started)"
+                    ),
+                    "benchmarking": (
+                        status.benchmarking_result.benchmarking_error
+                        if status.benchmarking_result is not None
+                        else "(not started)"
+                    ),
+                },
+            )
 
         if status.error_logs and on_progress:
             for log in status.error_logs:
@@ -81,6 +110,7 @@ async def poll_validation_task(
             await sleep(poll_interval)
             continue
 
+        get_logger().info("Validation task finished: status={}", status.status)
         return status
 
 

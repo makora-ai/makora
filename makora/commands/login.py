@@ -22,6 +22,7 @@ from pathlib import Path
 import typer
 
 from ..utils import get_rich_console
+from ..log import get_logger
 from ..config import GENERATE_BASE_URL
 from ..web.conn import open_connection
 from ..web.auth import login_with_token
@@ -58,6 +59,7 @@ async def cli_login_async(
             console.print(f"[red]Path {token!r} exists but is not a file! Cannot read the user's token.[/red]")
             raise typer.Exit(1)
 
+        get_logger().debug("Reading token from file: {}", maybe_token_file)
         token = maybe_token_file.read_text()
         if not token:
             console.print(f"[red]Token file at: {str(maybe_token_file)!r} is empty.[/red]")

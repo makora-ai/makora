@@ -26,6 +26,7 @@ class TargetDevice(Enum):
     B200 = "B200"
     L40S = "L40S"
     MI300X = "MI300X"
+    MI355X = "MI355X"
     ADRENO_830 = "Adreno 830"
     ADRENO_750 = "Adreno 750"
     HEXAGON_V79 = "Hexagon v79"
@@ -35,7 +36,7 @@ class TargetDevice(Enum):
         match self:
             case TargetDevice.H100 | TargetDevice.H200 | TargetDevice.B200 | TargetDevice.L40S:
                 return KernelLanguage.cuda
-            case TargetDevice.MI300X:
+            case TargetDevice.MI300X | TargetDevice.MI355X:
                 return KernelLanguage.hip
             case TargetDevice.ADRENO_750 | TargetDevice.ADRENO_830:
                 return KernelLanguage.opencl
@@ -50,7 +51,7 @@ class TargetDevice(Enum):
                     KernelLanguage.triton,
                 }
 
-            case TargetDevice.MI300X:
+            case TargetDevice.MI300X | TargetDevice.MI355X:
                 return lang in {
                     KernelLanguage.triton,
                     KernelLanguage.hip,
@@ -74,6 +75,8 @@ class TargetDevice(Enum):
                 return "nvidia:L40S"
             case TargetDevice.MI300X:
                 return "amd:mi300x"
+            case TargetDevice.MI355X:
+                return "amd:mi355x"
             case TargetDevice.ADRENO_830:
                 return "qualcomm:snapdragon_8_elite_gpu"
             case TargetDevice.ADRENO_750:
@@ -96,6 +99,8 @@ class TargetDevice(Enum):
                 return cls.L40S
             case "amd:mi300x":
                 return cls.MI300X
+            case "amd:mi355x":
+                return cls.MI355X
             case "qualcomm:snapdragon_8_elite_gpu":
                 return cls.ADRENO_830
             case "qualcomm:snapdragon_8_gen_3_gpu":

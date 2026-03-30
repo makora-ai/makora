@@ -22,6 +22,7 @@ from rich.table import Table
 from rich import box
 
 from ..utils import get_rich_console
+from ..log import get_logger
 from ..web.conn import open_connection
 from ..web.auth import get_current_credentials
 from ..web.sessions import fetch_session_extra, get_user_sessions, stop_job, resolve_session
@@ -74,6 +75,7 @@ def create_jobs_table(
 
 
 async def cli_stop_async(job_uuid: str, url: str | None = None) -> None:
+    get_logger().info("stop: job_uuid={}", job_uuid)
     if get_current_credentials() is None:
         raise SystemExit("You need to login first with 'makora login'")
 
@@ -87,13 +89,16 @@ async def cli_stop_async(job_uuid: str, url: str | None = None) -> None:
             raise SystemExit(1)
         session_id = session.id
         console.print(f"Found job: [cyan]{session_id}[/cyan]")
-        if await stop_job(conn, session_id):
+        stopped = await stop_job(conn, session_id)
+        get_logger().info("Stop result: stopped={} session_id={}", stopped, session_id)
+        if stopped:
             console.print(f"[green]Job {str(session_id)[:8]} stopped successfully.[/green]")
         else:
             console.print(f"[yellow]Job {str(session_id)[:8]} is not running.[/yellow]")
 
 
 async def cli_jobs_async(fast: bool, url: str | None = None) -> None:
+    get_logger().info("jobs: fast={}", fast)
     creds = get_current_credentials()
     if creds is None:
         raise SystemExit("You need to login first with 'makora login'")
@@ -109,9 +114,11 @@ async def cli_jobs_async(fast: bool, url: str | None = None) -> None:
         extras: dict[UUID, SessionExtra] | None = None
         if not fast:
             # Fetch extras in parallel
+            get_logger().debug("Fetching extra data for {} sessions", len(sessions))
             tasks = [fetch_session_extra(conn, s.id) for s in sessions]
             results = await asyncio.gather(*tasks)
             extras = {s.id: r for s, r in zip(sessions, results) if r is not None}
+            get_logger().debug("Fetched extras for {} sessions", len(extras))
 
     table = create_jobs_table(sessions, extras)
     console.print(table)

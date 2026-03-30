@@ -17,7 +17,9 @@
 from .utils import EnvVar
 
 
-GENERATE_BASE_URL = EnvVar("MAKORA_URL", "https://generate.makora.com")
+GENERATE_BASE_URL = EnvVar(
+    "MAKORA_URL", "https://generate.makora.com", desc="Base server URL to target when making requests."
+)
 
 
 def _normalize_generate_api_url(url: str) -> str:

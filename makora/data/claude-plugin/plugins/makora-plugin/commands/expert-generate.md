@@ -20,7 +20,7 @@ makora expert-generate <file> [options]
 
 - `$1`: Path to the kernel file (`file`, required)
 - `$2` (optional): `--problem <path>` or `-p <path>`
-- `$3` (optional): `--device <device>` or `-d <device>` (default: `nvidia/L40S`)
+- `$3` (optional): `--device <device>` or `-d <device>` (default: `L40S`)
 - `$4` (optional): `--language <language>` or `-l <language>` (default: `cuda`)
 - `$5` (optional): `--speedup <float>`
 
@@ -28,6 +28,6 @@ makora expert-generate <file> [options]
 
 ```bash
 /makora-plugin:expert-generate solution.py
-/makora-plugin:expert-generate solution.py --problem problem.py --device "nvidia/H100"
-/makora-plugin:expert-generate solution.py -p problem.py -d "nvidia/L40S" -l triton --speedup 0.8
+/makora-plugin:expert-generate solution.py --problem problem.py --device "H100"
+/makora-plugin:expert-generate solution.py -p problem.py -d "L40S" -l triton --speedup 0.8
 ```

@@ -14,8 +14,11 @@
 
 
 from ..web.auth import logout
+from ..utils import get_rich_console
 
 
 def cli_logout() -> None:
     """Logout command to the service."""
+    console = get_rich_console()
     logout()
+    console.print("[green][bold]Logged out![/]")

@@ -27,7 +27,7 @@ def show_spinner(message: str, console: Console | None = None) -> ContextManager
     if console is None:
         console = get_rich_console()
 
-    if bool(NO_RICH.value) or not sys.stdout.isatty():
+    if NO_RICH.value == "1" or not sys.stdout.isatty():
         console.print(message)
         return dummy_context(None)
 
